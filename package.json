@@ -5,6 +5,7 @@
     }, 
     "dependencies": {
         "coap": "~0.13.0", 
+        "iotdb-links": "~0.13.0", 
         "iotdb": ">=0.11.0"
     }, 
     "description": "HomeStar / IOTDB Bridge for Plugfest", 

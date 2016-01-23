@@ -26,7 +26,12 @@ var iotdb = require('iotdb');
 var _ = iotdb._;
 var bunyan = iotdb.bunyan;
 
-var plugfest = require('plugfest');
+var iotdb_links = require('iotdb-links');
+
+var url = require('url');
+var coap = require('coap');
+coap.registerFormat('text/plain', 65201)
+coap.registerFormat('text/plain', 65203)
 
 var logger = bunyan.createLogger({
     name: 'homestar-plugfest',
@@ -44,14 +49,23 @@ var PlugfestBridge = function (initd, native) {
 
     self.initd = _.defaults(initd,
         iotdb.keystore().get("bridges/PlugfestBridge/initd"), {
-            poll: 30
+            poll: 30,
+            url: null,
+            verbose: true,
         }
     );
     self.native = native;   // the thing that does the work - keep this name
 
     if (self.native) {
         self.queue = _.queue("PlugfestBridge");
+
+        if (self.initd.verbose) {
+            logger.info({
+                native: native,
+            }, "new PlugfestBridge");
+        }
     }
+
 };
 
 PlugfestBridge.prototype = new iotdb.Bridge();
@@ -72,16 +86,155 @@ PlugfestBridge.prototype.discover = function () {
         method: "discover"
     }, "called");
 
-    /*
-     *  This is the core bit of discovery. As you find new
-     *  thimgs, make a new PlugfestBridge and call 'discovered'.
-     *  The first argument should be self.initd, the second
-     *  the thing that you do work with
-     */
-    var s = self._plugfest();
-    s.on('something', function (native) {
-        self.discovered(new PlugfestBridge(self.initd, native));
+    if (!self.initd.url) {
+        throw new Error("'url' is required parameter");
+    }
+
+    // fetch from the beginning
+    var coap_urlp = url.parse(self.initd.url);
+    coap_urlp.pathname = "/.well-known/core"
+    var coap_url = url.format(coap_urlp);
+
+    self._fetch(coap_url);
+};
+
+
+PlugfestBridge.prototype._fetch = function (start_url) {
+    var self = this;
+
+    var seend = {};
+    var coap_urlp;
+
+    var _handle_links = function(coap_url, string) {
+        var d = iotdb_links.parse(string);
+        for (var resource_url in d) {
+            var resourced = d[resource_url];
+            if (resourced.ct !== '65201') {
+                continue;
+            }
+
+            if (resource_url.match(/^[\/]/)) {
+                coap_urlp = url.parse(coap_url);
+                coap_urlp.pathname = resource_url;
+
+                resource_url = url.format(coap_urlp);
+            }
+
+            _download(resource_url);
+        }
+    };
+
+    var _handle_embedded = function(coap_url, ed) {
+        var ct = _.d.get(ed, "/_links/about/type");
+        if (ct !== 'application/lighting+json') {
+            return
+        }
+
+        var base = _.d.get(ed, "/_base");
+        if (!base) {
+            coap_urlp = url.parse(coap_url);
+            coap_urlp.pathname = "/"
+            base = url.format(coap_urlp);
+        }
+
+        var href = _.d.get(ed, "/_links/about/href");
+        if (!href) {
+            return;
+        }
+
+        coap_urlp = url.parse(base);
+        coap_urlp.pathname = href;
+        var lighting_url = url.format(coap_urlp);
+
+        var native = {
+            "name": _.d.get(ed, "name", null),
+            "purpose": _.d.get(ed, "purpose", null),
+            "url": lighting_url,
+            "type": 'application/lighting+json',
+        }
+
+        self._download(native.url, function(error, result) {
+            if (error) {
+                return;
+            }
+
+            native.istate = JSON.parse(result);
+
+            self.discovered(new PlugfestBridge(self.initd, native));
+        });
+
+    };
+
+    var _handle_json = function(coap_url, string) {
+        var d = JSON.parse(string);
+        var items = _.d.get(d, "_embedded/item", []);   // TD: _.d.list
+        items.map(function(item) {
+            _handle_embedded(coap_url, item);
+        });
+    };
+
+    var _download = function(coap_url) {
+        if (seend[coap_url]) {
+            logger.error({
+                method: "_fetch/_download",
+                url: coap_url,
+                cause: "may not be a problem, just avoiding loops",
+            }, "already downloaded");
+            return;
+        } 
+        seend[coap_url] = true;
+
+        self._download(coap_url, function(error, string) {
+            if (error) {
+                logger.error({
+                    method: "_fetch/_download",
+                    url: coap_url,
+                    error: _.error.message(error),
+                }, "error downloading");
+                return;
+            }
+
+            if (string.match(/^</)) {
+                _handle_links(coap_url, string);
+            } else if (string.match(/^{/)) {
+                _handle_json(coap_url, string);
+            } else {
+            }
+        });
+    };
+
+    _download(start_url);
+}
+
+PlugfestBridge.prototype._download = function(coap_url, callback) {
+    var req = coap.request(coap_url);
+
+    logger.info({
+        method: "_download",
+        url: coap_url,
+    }, "download");
+
+
+    req.on('response', function(res) {
+        var parts = [];
+        res.on('readable',function(){
+            while (true) {
+                var buffer = res.read();
+                if (!buffer) {
+                    return
+                }
+
+                parts.push(buffer.toString('utf-8'));
+            }
+        });
+
+
+        res.on('end',function(){
+            callback(null, parts.join("\n"));
+        });
     });
+
+    req.end()
 };
 
 /**
@@ -93,10 +246,31 @@ PlugfestBridge.prototype.connect = function (connectd) {
         return;
     }
 
-    self._validate_connect(connectd);
-
     self._setup_polling();
-    self.pull();
+
+    self.pulled(self.native.istate);
+
+    /// https://github.com/mcollina/node-coap#requesturl
+    var urlp = url.parse(self.native.url);
+    self._download({
+        hostname: urlp.hostname,
+        pathname: urlp.pathname,
+        port: urlp.port,
+        observe: true,
+    }, function(error, result) {
+        if (error) {
+            // disconnect?
+            return;
+        }
+
+        var istate = JSON.parse(result);
+        if (_.is.Equal(istate, native.istate)) {
+            return;
+        }
+
+        native.istate = istate;
+        self.pulled(self.native.istate);
+    });
 };
 
 PlugfestBridge.prototype._setup_polling = function () {
@@ -227,21 +401,6 @@ PlugfestBridge.prototype.reachable = function () {
  */
 PlugfestBridge.prototype.configure = function (app) {};
 
-/* -- internals -- */
-var __singleton;
-
-/**
- *  If you need a singleton to access the library
- */
-PlugfestBridge.prototype._plugfest = function () {
-    var self = this;
-
-    if (!__singleton) {
-        __singleton = plugfest.init();
-    }
-
-    return __singleton;
-};
 
 /*
  *  API
