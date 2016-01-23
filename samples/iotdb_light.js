@@ -20,6 +20,12 @@ things.on("meta", function(thing) {
 });
 things.on("thing", function(thing) {
     console.log("+", "discovered", thing.thing_id(), "\n ", thing.state("meta"));
+
+    var count = 0;
+    var colors = ["#FF0000", "#00FF00", "#0000FF", "#00FFFF", "#FF00FF", "#FFFF00", "#FFFFFF", "#000000"];
+    setInterval(function () {
+        thing.set(":color", colors[count++ % colors.length]);
+    }, 2500);
 });
 
 

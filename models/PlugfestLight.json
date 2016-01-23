@@ -13,6 +13,10 @@
       "@id": "https://iotdb.org/pub/iot#type",
       "@type": "@id"
     },
+    "iot:format": {
+      "@id": "https://iotdb.org/pub/iot#format",
+      "@type": "@id"
+    },
     "iot-unit": "https://iotdb.org/pub/iot-unit#",
     "iot:unit": {
       "@id": "https://iotdb.org/pub/iot#unit",
@@ -34,6 +38,18 @@
       "iot:read": true,
       "iot:actuator": true,
       "iot:sensor": true
+    },
+    {
+      "@type": "iot:Attribute",
+      "@id": "#rgb",
+      "schema:name": "rgb",
+      "iot:purpose": "iot-purpose:color",
+      "iot:type": "iot:type.string",
+      "iot:format": "iot:format.color",
+      "iot:sensor": true,
+      "iot:read": true,
+      "iot:write": false,
+      "iot:actuator": false
     },
     {
       "@type": "iot:Attribute",

@@ -124,25 +124,6 @@ PlugfestBridge.prototype._fetch = function (start_url) {
         }
     };
 
-/*
-
-      {
-        "name": "test",
-        "purpose": "Illuminates nothing",
-        "location": null,
-        "_base": "coap://129.132.130.252:57577",
-        "_links": {
-          "config": {
-            "href": "/config",
-            "type": "application/lighting-config+json"
-          }
-        },
-        "_forms": null,
-        "_embedded": null
-      },
- */
-
-
     var _handle_embedded = function(coap_url, ed) {
         var base = _.d.get(ed, "/_base");
         if (!base) {
@@ -161,26 +142,12 @@ PlugfestBridge.prototype._fetch = function (start_url) {
 
         coap_urlp = url.parse(base);
         coap_urlp.pathname = href;
-        var lighting_url = url.format(coap_urlp);
 
         return {
             "name": _.d.get(ed, "name", null),
             "purpose": _.d.get(ed, "purpose", null),
-            "url": lighting_url,
-            // "type": 'application/lighting+json',
+            "url": url.format(coap_urlp),
         }
-
-        /*
-        self._download(native.url, function(error, result) {
-            if (error) {
-                return;
-            }
-
-            native.istate = JSON.parse(result);
-
-        });
-        */
-
     };
 
     var _handle_json = function(coap_url, string) {
@@ -292,15 +259,15 @@ PlugfestBridge.prototype.connect = function (connectd) {
 
     var _pulled = function() {
         var paramd = {
-            rawd: self.native.istate,
-            cookd: _.shallowCopy(self.native.istate),
+            rawd: self.native.state,
+            cookd: _.shallowCopy(self.native.state),
         };
 
         if (self.connectd.data_in) {
             self.connectd.data_in(paramd);
         }
 
-        self.pulled(self.native.istate);
+        self.pulled(paramd.cookd);
     };
 
     var _process = function(error, result) {
@@ -315,11 +282,11 @@ PlugfestBridge.prototype.connect = function (connectd) {
         }
 
         var istate = JSON.parse(result);
-        if (_.is.Equal(istate, self.native.istate)) {
+        if (_.is.Equal(istate, self.native.state)) {
             return;
         }
 
-        self.native.istate = istate;
+        self.native.state = istate;
         _pulled();
     };
 
@@ -386,10 +353,8 @@ PlugfestBridge.prototype.push = function (pushd, done) {
     }, "push");
 
     var qitem = {
-        // if you set "id", new pushes will unqueue old pushes with the same id
-        // id: self.number, 
         run: function () {
-            self._pushd(pushd);
+            self._push(pushd);
             self.queue.finished(qitem);
         },
         coda: function() {
@@ -404,8 +369,29 @@ PlugfestBridge.prototype.push = function (pushd, done) {
  *  consider just moving this up into push
  */
 PlugfestBridge.prototype._push = function (pushd) {
-    if (pushd.on !== undefined) {
+    var self;
+
+    var paramd = {
+        rawd: _.shallowCopy(pushd),
+        cookd: pushd,
+    };
+
+    if (self.connectd.data_out) {
+        self.connectd.data_out(paramd);
     }
+
+    var state = _.d.compose.shallow(paramd.rawd, self.native.state);
+    if (_.is.Equal(state, self.native.state)) {
+        return;
+    }
+
+    self.native.state = state;
+
+    self._notify();
+    self.pulled(paramd.cookd);
+};
+
+PlugfestBridge.prototype._notify = function () {
 };
 
 /**
@@ -430,13 +416,9 @@ PlugfestBridge.prototype.meta = function () {
     }
 
     return {
-        "iot:thing-id": _.id.thing_urn.unique("Plugfest", self.native.uuid, self.initd.number),
+        "iot:thing-id": _.id.thing_urn.network_unique("Plugfest", self.native.name),
         "schema:name": self.native.name || "Plugfest",
-
-        // "iot:thing-number": self.initd.number,
-        // "iot:device-id": _.id.thing_urn.unique("Plugfest", self.native.uuid),
-        // "schema:manufacturer": "",
-        // "schema:model": "",
+        "iot:vendor.content-type": 'application/lighting+json',
     };
 };
 
