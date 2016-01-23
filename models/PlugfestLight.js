@@ -9,4 +9,10 @@
 exports.binding = {
     bridge: require('../PlugfestBridge').Bridge,
     model: require('./PlugfestLight.json'),
+    connectd: {
+        data_in: function (paramd) {
+            console.log("HERE:!!!!!!!!");
+        },
+    },
+
 };

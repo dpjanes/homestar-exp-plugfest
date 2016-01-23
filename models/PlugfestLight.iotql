@@ -12,6 +12,13 @@ ATTRIBUTE on WITH
     iot:read = true,
     iot:actuator = true,
     iot:sensor = true
+ATTRIBUTE rgb WITH      -- this is synthensized in the binding
+    schema:name = "rgb",
+    iot:purpose = iot-purpose:color,
+    iot:type = iot:type.string,
+    iot:format = iot:format.color,
+    iot:sensor = true,
+    iot:read = true
 ATTRIBUTE brightness WITH
     schema:name = "brightness",
     iot:purpose = iot-purpose:color.hsb.brightness,

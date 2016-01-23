@@ -124,12 +124,26 @@ PlugfestBridge.prototype._fetch = function (start_url) {
         }
     };
 
-    var _handle_embedded = function(coap_url, ed) {
-        var ct = _.d.get(ed, "/_links/about/type");
-        if (ct !== 'application/lighting+json') {
-            return
-        }
+/*
 
+      {
+        "name": "test",
+        "purpose": "Illuminates nothing",
+        "location": null,
+        "_base": "coap://129.132.130.252:57577",
+        "_links": {
+          "config": {
+            "href": "/config",
+            "type": "application/lighting-config+json"
+          }
+        },
+        "_forms": null,
+        "_embedded": null
+      },
+ */
+
+
+    var _handle_embedded = function(coap_url, ed) {
         var base = _.d.get(ed, "/_base");
         if (!base) {
             coap_urlp = url.parse(coap_url);
@@ -139,6 +153,9 @@ PlugfestBridge.prototype._fetch = function (start_url) {
 
         var href = _.d.get(ed, "/_links/about/href");
         if (!href) {
+            href = _.d.get(ed, "/_links/config/href");
+        }
+        if (!href) {
             return;
         }
 
@@ -146,13 +163,14 @@ PlugfestBridge.prototype._fetch = function (start_url) {
         coap_urlp.pathname = href;
         var lighting_url = url.format(coap_urlp);
 
-        var native = {
+        return {
             "name": _.d.get(ed, "name", null),
             "purpose": _.d.get(ed, "purpose", null),
             "url": lighting_url,
-            "type": 'application/lighting+json',
+            // "type": 'application/lighting+json',
         }
 
+        /*
         self._download(native.url, function(error, result) {
             if (error) {
                 return;
@@ -160,17 +178,41 @@ PlugfestBridge.prototype._fetch = function (start_url) {
 
             native.istate = JSON.parse(result);
 
-            self.discovered(new PlugfestBridge(self.initd, native));
         });
+        */
 
     };
 
     var _handle_json = function(coap_url, string) {
         var d = JSON.parse(string);
-        var items = _.d.get(d, "_embedded/item", []);   // TD: _.d.list
+        var items = _.d.get(d, "_embedded/item", null);
+        if (!items) {
+            return;
+        }
+
+        var ind = null;
+        var outd = null;
         items.map(function(item) {
-            _handle_embedded(coap_url, item);
+            if (_.d.get(item, "/_links/about/type") === 'application/lighting+json') {
+                ind = _handle_embedded(coap_url, item);
+            }
+            if (_.d.get(item, "/_links/config/type") === 'application/lighting-config+json') {
+                outd = _handle_embedded(coap_url, item);
+            }
         });
+
+        if (!ind) {
+            return;
+        }
+
+        var native = ind;
+        native.type = 'application/lighting+json';
+        native.istate = {};
+        if (outd) {
+            native.config = outd.url;
+        }
+
+        self.discovered(new PlugfestBridge(self.initd, native));
     };
 
     var _download = function(coap_url) {
@@ -246,47 +288,56 @@ PlugfestBridge.prototype.connect = function (connectd) {
         return;
     }
 
-    self._setup_polling();
+    self.connectd = _.defaults(connectd, {}, self.connectd);
 
-    self.pulled(self.native.istate);
+    var _pulled = function() {
+        var paramd = {
+            rawd: self.native.istate,
+            cookd: _.shallowCopy(self.native.istate),
+        };
+
+        if (self.connectd.data_in) {
+            self.connectd.data_in(paramd);
+        }
+
+        self.pulled(self.native.istate);
+    };
+
+    var _process = function(error, result) {
+        if (error) {
+            logger.error({
+                method: "connect/_process",
+                url: self.native.url,
+                error: _.error.message(error),
+            }, "network error");
+
+            return;
+        }
+
+        var istate = JSON.parse(result);
+        if (_.is.Equal(istate, self.native.istate)) {
+            return;
+        }
+
+        self.native.istate = istate;
+        _pulled();
+    };
 
     /// https://github.com/mcollina/node-coap#requesturl
     var urlp = url.parse(self.native.url);
+
     self._download({
         hostname: urlp.hostname,
         pathname: urlp.pathname,
         port: urlp.port,
         observe: true,
-    }, function(error, result) {
-        if (error) {
-            // disconnect?
-            return;
-        }
+    }, _process);
 
-        var istate = JSON.parse(result);
-        if (_.is.Equal(istate, native.istate)) {
-            return;
-        }
-
-        native.istate = istate;
-        self.pulled(self.native.istate);
-    });
-};
-
-PlugfestBridge.prototype._setup_polling = function () {
-    var self = this;
-    if (!self.initd.poll) {
-        return;
-    }
-
-    var timer = setInterval(function () {
-        if (!self.native) {
-            clearInterval(timer);
-            return;
-        }
-
-        self.pull();
-    }, self.initd.poll * 1000);
+    self._download({
+        hostname: urlp.hostname,
+        pathname: urlp.pathname,
+        port: urlp.port,
+    }, _process);
 };
 
 PlugfestBridge.prototype._forget = function () {
