@@ -1,0 +1,84 @@
+--
+--  compile to JSON with 'iotql-model Plugfest.iotql'
+--
+CREATE MODEL PlugfestLight WITH
+    schema:name = "Plugfest Light",
+    schema:description = "Kinda a Pseudo Hue"
+ATTRIBUTE on WITH
+    schema:name = "on",
+    iot:purpose = iot-purpose:on,
+    iot:type = iot:type.boolean,
+    iot:write = true,
+    iot:read = true,
+    iot:actuator = true,
+    iot:sensor = true
+ATTRIBUTE brightness WITH
+    schema:name = "brightness",
+    iot:purpose = iot-purpose:color.hsb.brightness,
+    iot:type = iot:type.number,
+    iot:unit = iot-unit:math.fraction.unit,
+    iot:vector = "hsb",
+    iot:minimum = 0,
+    iot:maximum = 1,
+    iot:write = true,
+    iot:read = true,
+    iot:actuator = true,
+    iot:sensor = true
+ATTRIBUTE hue WITH
+    schema:name = "hue",
+    iot:purpose = iot-purpose:color.hsb.hue,
+    iot:unit = iot-unit:math.fraction.number,
+    iot:vector = "hsb",
+    iot:minimum = 0,
+    iot:maximum = 1,
+    iot:write = true,
+    iot:read = true,
+    iot:actuator = true,
+    iot:sensor = true
+ATTRIBUTE saturation WITH
+    schema:name = "saturation",
+    iot:purpose = iot-purpose:color.hsb.saturation,
+    iot:type = iot:type.number,
+    iot:unit = iot-unit:math.angle.degree,
+    iot:vector = "hsb",
+    iot:minimum = 0,
+    iot:maximum = 360,
+    iot:write = true,
+    iot:read = true,
+    iot:actuator = true,
+    iot:sensor = true
+ATTRIBUTE x WITH
+    schema:name = "x",
+    iot:purpose = iot-purpose:color.cie.x,
+    iot:type = iot:type.number,
+    iot:unit = iot-unit:math.fraction.unit,
+    iot:vector = "xy",
+    iot:minimum = 0,
+    iot:maximum = 1,
+    iot:read = true,
+    iot:sensor = true
+ATTRIBUTE y WITH
+    schema:name = "y",
+    iot:purpose = iot-purpose:color.cie.y,
+    iot:unit = iot-unit:math.fraction.unit,
+    iot:type = iot:type.number,
+    iot:vector = "xy",
+    iot:read = true,
+    iot:sensor = true
+ATTRIBUTE colorTemperature WITH
+    schema:name = "color temperature",
+    iot:purpose = iot-purpose:color.temperature,
+    iot:type = iot:type.number,
+    iot:unit = iot-unit:temperature.si.mirek,
+    iot:read = true,
+    iot:sensor = true
+ATTRIBUTE colorMode WITH
+    schema:name = "color mode",
+    iot:purpose = iot-purpose:value,
+    iot:type = iot:type.string,
+    iot:enumeration = "hs",
+    iot:enumeration = "ct",
+    iot:enumeration = "xy",
+    iot:sensor = true,
+    iot:read = true
+;

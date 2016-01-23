@@ -24,7 +24,7 @@
 
 exports.Bridge = require('./PlugfestBridge').Bridge;
 exports.bindings = [
-    require('./models/Plugfest').binding,
+    require('./models/PlugfestLight').binding,
 ];
 
 exports.iotdb = require("iotdb");
