@@ -9,7 +9,9 @@
 var iotdb = require('iotdb');
 var iot = iotdb.iot();
 
-var things = iot.connect('PlugfestSomething');
+var things = iot.connect('PlugfestLight', {
+    url: 'coap://129.132.130.252:5082',
+});
 things.on("state", function(thing) {
     console.log("+", "state", thing.thing_id(), "\n ", thing.state("istate"));
 });
