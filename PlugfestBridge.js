@@ -28,6 +28,7 @@ var bunyan = iotdb.bunyan;
 
 var iotdb_links = require('iotdb-links');
 
+var events = require('events');
 var url = require('url');
 var coap = require('coap');
 coap.registerFormat('text/plain', 65201)
@@ -37,6 +38,8 @@ var logger = bunyan.createLogger({
     name: 'homestar-plugfest',
     module: 'PlugfestBridge',
 });
+
+var _plug_index = 0;
 
 /**
  *  See {iotdb.bridge.Bridge#Bridge} for documentation.
@@ -50,20 +53,67 @@ var PlugfestBridge = function (initd, native) {
     self.initd = _.defaults(initd,
         iotdb.keystore().get("bridges/PlugfestBridge/initd"), {
             poll: 30,
+            server_host: null,
+            server_port: 22000,
             url: null,
             verbose: true,
         }
     );
-    self.native = native;   // the thing that does the work - keep this name
+    self.native = native;  
 
     if (self.native) {
+        _plug_index ++;
+
         self.queue = _.queue("PlugfestBridge");
+        self.stated = {};
+
+        self._emitter = new events.EventEmitter();
 
         if (self.initd.verbose) {
             logger.info({
                 native: native,
             }, "new PlugfestBridge");
         }
+
+        self._server(function(error, server) {
+            if (error) {
+                logger.error({
+                    method: "PlugfestBridge",
+                    error: _.error.message(error),
+                }, "could not create a CoAP server");
+                return;
+            }
+
+            var update_path = "/ostate/" + _plug_index;
+            var update_url = server._iotdb_url + update_path;
+
+            logger.info({
+                method: "PlugfestBridge",
+                update_path: update_path,
+                update_url: update_url,
+            }, "listening for CoAP requests");
+
+            server.on('request', function(req, res) {
+                if (req.url !== update_path) {
+                    return;
+                }
+                
+                res.write(JSON.stringify(self.stated));
+                res.write("\n");
+
+                if (req.headers['Observe'] !== 0) {
+                    res.end();
+                }
+
+                self._emitter.on("push", function() {
+                    res.write(JSON.stringify(self.stated));
+                    res.write("\n");
+                });
+                self._emitter.on("end", function() {
+                    res.end();
+                });
+            })
+        });
     }
 
 };
@@ -172,14 +222,15 @@ PlugfestBridge.prototype._fetch = function (start_url) {
             return;
         }
 
-        var native = ind;
-        native.type = 'application/lighting+json';
-        native.istate = {};
+        var initd = _.d.compose.shallow({
+            type: 'application/lighting+json',
+        }, ind, self.initd);
+
         if (outd) {
-            native.config = outd.url;
+            initd.config = outd.url;
         }
 
-        self.discovered(new PlugfestBridge(self.initd, native));
+        self.discovered(new PlugfestBridge(initd, {}));
     };
 
     var _download = function(coap_url) {
@@ -237,7 +288,6 @@ PlugfestBridge.prototype._download = function(coap_url, callback) {
             }
         });
 
-
         res.on('end',function(){
             callback(null, parts.join("\n"));
         });
@@ -257,19 +307,6 @@ PlugfestBridge.prototype.connect = function (connectd) {
 
     self.connectd = _.defaults(connectd, {}, self.connectd);
 
-    var _pulled = function() {
-        var paramd = {
-            rawd: self.native.state,
-            cookd: _.shallowCopy(self.native.state),
-        };
-
-        if (self.connectd.data_in) {
-            self.connectd.data_in(paramd);
-        }
-
-        self.pulled(paramd.cookd);
-    };
-
     var _process = function(error, result) {
         if (error) {
             logger.error({
@@ -282,16 +319,16 @@ PlugfestBridge.prototype.connect = function (connectd) {
         }
 
         var istate = JSON.parse(result);
-        if (_.is.Equal(istate, self.native.state)) {
+        if (_.is.Equal(istate, self.stated)) {
             return;
         }
 
-        self.native.state = istate;
-        _pulled();
+        self.stated = istate;
+        self._pulled();
     };
 
     /// https://github.com/mcollina/node-coap#requesturl
-    var urlp = url.parse(self.native.url);
+    var urlp = url.parse(self.initd.url);
 
     self._download({
         hostname: urlp.hostname,
@@ -369,7 +406,7 @@ PlugfestBridge.prototype.push = function (pushd, done) {
  *  consider just moving this up into push
  */
 PlugfestBridge.prototype._push = function (pushd) {
-    var self;
+    var self = this;
 
     var paramd = {
         rawd: _.shallowCopy(pushd),
@@ -380,18 +417,30 @@ PlugfestBridge.prototype._push = function (pushd) {
         self.connectd.data_out(paramd);
     }
 
-    var state = _.d.compose.shallow(paramd.rawd, self.native.state);
-    if (_.is.Equal(state, self.native.state)) {
+    var state = _.d.compose.shallow(paramd.rawd, self.stated);
+    if (_.is.Equal(state, self.stated)) {
         return;
     }
 
-    self.native.state = state;
+    self.stated = state;
 
-    self._notify();
-    self.pulled(paramd.cookd);
+    self._emitter.emit("push");
+    self._pulled();
 };
 
-PlugfestBridge.prototype._notify = function () {
+PlugfestBridge.prototype._pulled = function () {
+    var self = this;
+
+    var paramd = {
+        rawd: self.stated,
+        cookd: _.shallowCopy(self.stated),
+    };
+
+    if (self.connectd.data_in) {
+        self.connectd.data_in(paramd);
+    }
+
+    self.pulled(paramd.cookd);
 };
 
 /**
@@ -416,7 +465,7 @@ PlugfestBridge.prototype.meta = function () {
     }
 
     return {
-        "iot:thing-id": _.id.thing_urn.network_unique("Plugfest", self.native.name),
+        "iot:thing-id": _.id.thing_urn.network_unique("Plugfest", _.hash.md5(self.initd.name)),
         "schema:name": self.native.name || "Plugfest",
         "iot:vendor.content-type": 'application/lighting+json',
     };
@@ -434,7 +483,51 @@ PlugfestBridge.prototype.reachable = function () {
  */
 PlugfestBridge.prototype.configure = function (app) {};
 
+/* --- internals ---*/
 
+var _server = null;
+var _pendings = [];
+
+PlugfestBridge.prototype._server = function(callback) {
+    var self = this;
+
+    if (_server) {
+        return callback(null, _server);
+    }
+
+    _pendings.push(callback);
+
+    var _done = function(error, server) {
+        if (error) {
+            _server = null;
+        } else {
+            _server = server;
+        }
+
+        _pendings.map(function(pending) {
+            pending(error, _server);
+        });
+    };
+
+    _.net.external.ipv4(function(error, ipv4) {
+        if (self.initd.server_host) {
+            ipv4 = self.initd.server_host;
+        } else if (error) {
+            ipv4 = _.net.ipv4();
+        }
+
+        var server = coap.createServer();
+        server.listen(self.initd.server_port, "0.0.0.0", function(error) {
+            if (server) {
+                server._iotdb_url = "coap://" + ipv4 + ":" + self.initd.server_port;
+            }
+
+            _done(error, server);
+        });
+    });
+
+};
+ 
 /*
  *  API
  */
