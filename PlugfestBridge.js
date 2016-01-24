@@ -32,7 +32,9 @@ var events = require('events');
 var url = require('url');
 var coap = require('coap');
 coap.registerFormat('text/plain', 65201)
+coap.registerFormat('text/plain', 65202)
 coap.registerFormat('text/plain', 65203)
+coap.registerFormat('text/plain', 65204)
 
 var logger = bunyan.createLogger({
     name: 'homestar-plugfest',
@@ -75,45 +77,83 @@ var PlugfestBridge = function (initd, native) {
             }, "new PlugfestBridge");
         }
 
-        self._server(function(error, server) {
-            if (error) {
-                logger.error({
-                    method: "PlugfestBridge",
-                    error: _.error.message(error),
-                }, "could not create a CoAP server");
-                return;
-            }
-
-            var update_path = "/ostate/" + _plug_index;
-            var update_url = server._iotdb_url + update_path;
-
-            logger.info({
-                method: "PlugfestBridge",
-                update_path: update_path,
-                update_url: update_url,
-            }, "listening for CoAP requests");
-
-            server.on('request', function(req, res) {
-                if (req.url !== update_path) {
+        if (self.initd.config) {
+            self._server(function(error, server) {
+                if (error) {
+                    logger.error({
+                        method: "PlugfestBridge",
+                        error: _.error.message(error),
+                    }, "could not create a CoAP server");
                     return;
                 }
-                
-                res.write(JSON.stringify(self.stated));
-                res.write("\n");
 
-                if (req.headers['Observe'] !== 0) {
-                    res.end();
-                }
+                var update_path = "/ostate/" + _plug_index;
+                var update_url = server._iotdb_url + update_path;
 
-                self._emitter.on("push", function() {
+                logger.info({
+                    method: "PlugfestBridge",
+                    update_path: update_path,
+                    update_url: update_url,
+                }, "listening for CoAP requests");
+
+                server.on('request', function(req, res) {
+                    if (req.url !== update_path) {
+                        return;
+                    }
+                    
                     res.write(JSON.stringify(self.stated));
                     res.write("\n");
+
+                    if (req.headers['Observe'] !== 0) {
+                        res.end();
+                    }
+
+                    self._emitter.on("push", function() {
+                        res.write(JSON.stringify(self.stated));
+                        res.write("\n");
+                    });
+                    self._emitter.on("end", function() {
+                        res.end();
+
+                        self._emitter.removeAllListeners();
+                    });
                 });
-                self._emitter.on("end", function() {
-                    res.end();
+
+                // now tell the other side to listen for messages
+                var msg = {
+                  "_base": null, 
+                  "_embedded": null, 
+                  "_forms": {
+                    "update": {
+                      "accept": "application/lighting-config+json", 
+                      "href": "", 
+                      "method": "PUT"
+                    }
+                  }, 
+                  "_links": null, 
+                  "src": {
+                    "href": "coap://129.132.130.252:63552/state", 
+                    "type": null, 
+                    "x": 1
+                  }
+                };
+                _.d.set(msg, "/src/href", update_url);
+
+                var curlp = url.parse(self.initd.config);
+
+                var oreq = coap.request({
+                    hostname: curlp.hostname,
+                    pathname: curlp.pathname,
+                    port: curlp.port,
+                    method: 'PUT',
                 });
-            })
-        });
+                oreq.write(JSON.stringify(msg));
+                oreq.end();
+
+                // process.exit()
+
+            });
+        }
     }
 
 };
