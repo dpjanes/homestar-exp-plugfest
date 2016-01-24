@@ -14,6 +14,7 @@ var _ = iotdb._;
 exports.binding = {
     bridge: require('../PlugfestBridge').Bridge,
     model: require('./PlugfestLight.json'),
+    discover: false,
     connectd: {
         data_in: function (paramd) {
             if (paramd.rawd.brightness === undefined) {

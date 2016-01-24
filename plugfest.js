@@ -26,6 +26,8 @@ var iotdb = require('iotdb');
 var iotdb_transport = require('iotdb-transport');
 var _ = iotdb.helpers;
 
+var url_join = require('url-join');
+
 var logger = iotdb.logger({
     name: 'homestar-plugfest',
     module: 'plugfest',
@@ -50,7 +52,9 @@ var _transport_plugfest = function (iotdb_transporter) {
     var plugfest_transporter = new PlugfestTransport({
         prefix: url_join("/", "api", "things"),
         key_things: "thing",
-    }, app);
+        server_host: null,      // needs to be made soft
+        server_port: 22001,     // needs to be made soft
+    });
     iotdb_transport.bind(iotdb_transporter, plugfest_transporter, {
         bands: [ "istate", "ostate", "model", ],
         updated: [ "ostate", ],
@@ -58,8 +62,8 @@ var _transport_plugfest = function (iotdb_transporter) {
     });
 };
 
-var on_ready = function(locals, profile) {
-    _transport_plugfest(locals.things.make_iotdb_transport());
+var on_ready = function(locals) {
+    _transport_plugfest(locals.homestar.things.make_transporter());
 };
 
 /**
