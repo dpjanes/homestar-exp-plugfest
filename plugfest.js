@@ -26,7 +26,7 @@ var iotdb = require('iotdb');
 var iotdb_transport = require('iotdb-transport');
 var _ = iotdb.helpers;
 
-var logger = bunyan.createLogger({
+var logger = iotdb.logger({
     name: 'homestar-plugfest',
     module: 'plugfest',
 });
@@ -34,7 +34,7 @@ var logger = bunyan.createLogger({
 var PlugfestTransport = null;
 try {
     PlugfestTransport = require('iotdb-transport-plugfest').Transport;
-} catch {
+} catch (x) {
 }
 
 var _transport_plugfest = function (iotdb_transporter) {
@@ -66,4 +66,3 @@ var on_ready = function(locals, profile) {
  *  API
  */
 exports.on_ready = on_ready;
-
