@@ -24,7 +24,6 @@
 
 var iotdb = require('iotdb');
 var _ = iotdb._;
-var bunyan = iotdb.bunyan;
 
 var iotdb_links = require('iotdb-links');
 
@@ -36,7 +35,7 @@ coap.registerFormat('text/plain', 65202);
 coap.registerFormat('text/plain', 65203);
 coap.registerFormat('text/plain', 65204);
 
-var logger = bunyan.createLogger({
+var logger = iotdb.logger({
     name: 'homestar-plugfest',
     module: 'PlugfestBridge',
 });

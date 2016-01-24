@@ -38,8 +38,10 @@ exports.wrap = function (name, initd) {
 /**
  *  Transporter section
  */
+/*
 var plugfest = require('./plugfest');
 
 exports.homestar = {
     on_ready: plugfest.on_ready,
 };
+*/
