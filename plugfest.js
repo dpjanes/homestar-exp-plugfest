@@ -15,7 +15,7 @@
  *
  *  Unless required by applicable law or agreed to in writing, software
  *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either plugfest or implied.
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
@@ -26,16 +26,32 @@ var iotdb = require('iotdb');
 var iotdb_transport = require('iotdb-transport');
 var _ = iotdb.helpers;
 
-// this should be optional
-var PlugfestTransport = require('iotdb-exp-transport-plugfest').Transport;
+var logger = bunyan.createLogger({
+    name: 'homestar-plugfest',
+    module: 'plugfest',
+});
 
-var _transport_express = function (app, iotdb_transporter) {
+var PlugfestTransport = null;
+try {
+    PlugfestTransport = require('iotdb-transport-plugfest').Transport;
+} catch {
+}
+
+var _transport_plugfest = function (iotdb_transporter) {
+    if (!PlugfestTransport) {
+        logger.error({
+            method: "_transport_plugfest",
+            cause: "do $ homestar install iotdb-transport-plugfest",
+        }, "Transporter not installed");
+        return;
+    }
+
     var owner = iotdb.users.owner();
-    var express_transporter = new PlugfestTransport({
+    var plugfest_transporter = new PlugfestTransport({
         prefix: url_join("/", "api", "things"),
         key_things: "thing",
     }, app);
-    iotdb_transport.bind(iotdb_transporter, express_transporter, {
+    iotdb_transport.bind(iotdb_transporter, plugfest_transporter, {
         bands: [ "istate", "ostate", "model", ],
         updated: [ "ostate", ],
         user: owner,
@@ -43,6 +59,7 @@ var _transport_express = function (app, iotdb_transporter) {
 };
 
 var on_ready = function(locals, profile) {
+    _transport_plugfest(locals.things.make_iotdb_transport());
 };
 
 /**
