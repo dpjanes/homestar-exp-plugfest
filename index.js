@@ -22,6 +22,9 @@
 
 "use strict";
 
+/**
+ *  Bridge section
+ */
 exports.Bridge = require('./PlugfestBridge').Bridge;
 exports.bindings = [
     require('./models/PlugfestLight').binding,
@@ -31,3 +34,12 @@ exports.iotdb = require("iotdb");
 exports.wrap = function(name, initd) {
     return exports.iotdb.make_wrap(name, exports.bindings, initd);
 };
+
+/**
+ *  Transporter section
+ */
+var plugfest = require('./plugfest');
+
+exports.homestar = {
+    on_ready: plugfest.on_ready,
+}

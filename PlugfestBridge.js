@@ -106,16 +106,20 @@ var PlugfestBridge = function (initd, native) {
 
                     if (req.headers['Observe'] !== 0) {
                         res.end();
+                        return;
                     }
 
                     self._emitter.on("push", function() {
+                        if (!res) {
+                            return;
+                        }
+
                         res.write(JSON.stringify(self.stated));
                         res.write("\n");
                     });
                     self._emitter.on("end", function() {
                         res.end();
-
-                        self._emitter.removeAllListeners();
+                        res = null;
                     });
                 });
 
