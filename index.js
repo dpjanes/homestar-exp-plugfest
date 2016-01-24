@@ -31,7 +31,7 @@ exports.bindings = [
 ];
 
 exports.iotdb = require("iotdb");
-exports.wrap = function(name, initd) {
+exports.wrap = function (name, initd) {
     return exports.iotdb.make_wrap(name, exports.bindings, initd);
 };
 
@@ -42,4 +42,4 @@ var plugfest = require('./plugfest');
 
 exports.homestar = {
     on_ready: plugfest.on_ready,
-}
+};

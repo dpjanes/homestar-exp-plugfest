@@ -31,10 +31,10 @@ var iotdb_links = require('iotdb-links');
 var events = require('events');
 var url = require('url');
 var coap = require('coap');
-coap.registerFormat('text/plain', 65201)
-coap.registerFormat('text/plain', 65202)
-coap.registerFormat('text/plain', 65203)
-coap.registerFormat('text/plain', 65204)
+coap.registerFormat('text/plain', 65201);
+coap.registerFormat('text/plain', 65202);
+coap.registerFormat('text/plain', 65203);
+coap.registerFormat('text/plain', 65204);
 
 var logger = bunyan.createLogger({
     name: 'homestar-plugfest',
@@ -61,10 +61,10 @@ var PlugfestBridge = function (initd, native) {
             verbose: true,
         }
     );
-    self.native = native;  
+    self.native = native;
 
     if (self.native) {
-        _plug_index ++;
+        _plug_index++;
 
         self.queue = _.queue("PlugfestBridge");
         self.stated = {};
@@ -78,7 +78,7 @@ var PlugfestBridge = function (initd, native) {
         }
 
         if (self.initd.config) {
-            self._server(function(error, server) {
+            self._server(function (error, server) {
                 if (error) {
                     logger.error({
                         method: "PlugfestBridge",
@@ -96,11 +96,11 @@ var PlugfestBridge = function (initd, native) {
                     update_url: update_url,
                 }, "listening for CoAP requests");
 
-                server.on('request', function(req, res) {
+                server.on('request', function (req, res) {
                     if (req.url !== update_path) {
                         return;
                     }
-                    
+
                     res.write(JSON.stringify(self.stated));
                     res.write("\n");
 
@@ -109,7 +109,7 @@ var PlugfestBridge = function (initd, native) {
                         return;
                     }
 
-                    self._emitter.on("push", function() {
+                    self._emitter.on("push", function () {
                         if (!res) {
                             return;
                         }
@@ -117,7 +117,7 @@ var PlugfestBridge = function (initd, native) {
                         res.write(JSON.stringify(self.stated));
                         res.write("\n");
                     });
-                    self._emitter.on("end", function() {
+                    self._emitter.on("end", function () {
                         res.end();
                         res = null;
                     });
@@ -125,21 +125,21 @@ var PlugfestBridge = function (initd, native) {
 
                 // now tell the other side to listen for messages
                 var msg = {
-                  "_base": null, 
-                  "_embedded": null, 
-                  "_forms": {
-                    "update": {
-                      "accept": "application/lighting-config+json", 
-                      "href": "", 
-                      "method": "PUT"
+                    "_base": null,
+                    "_embedded": null,
+                    "_forms": {
+                        "update": {
+                            "accept": "application/lighting-config+json",
+                            "href": "",
+                            "method": "PUT"
+                        }
+                    },
+                    "_links": null,
+                    "src": {
+                        "href": "coap://129.132.130.252:63552/state",
+                        "type": null,
+                        "x": 1
                     }
-                  }, 
-                  "_links": null, 
-                  "src": {
-                    "href": "coap://129.132.130.252:63552/state", 
-                    "type": null, 
-                    "x": 1
-                  }
                 };
                 _.d.set(msg, "/src/href", update_url);
 
@@ -186,7 +186,7 @@ PlugfestBridge.prototype.discover = function () {
 
     // fetch from the beginning
     var coap_urlp = url.parse(self.initd.url);
-    coap_urlp.pathname = "/.well-known/core"
+    coap_urlp.pathname = "/.well-known/core";
     var coap_url = url.format(coap_urlp);
 
     self._fetch(coap_url);
@@ -199,7 +199,8 @@ PlugfestBridge.prototype._fetch = function (start_url) {
     var seend = {};
     var coap_urlp;
 
-    var _handle_links = function(coap_url, string) {
+    var _download;
+    var _handle_links = function (coap_url, string) {
         var d = iotdb_links.parse(string);
         for (var resource_url in d) {
             var resourced = d[resource_url];
@@ -218,11 +219,11 @@ PlugfestBridge.prototype._fetch = function (start_url) {
         }
     };
 
-    var _handle_embedded = function(coap_url, ed) {
+    var _handle_embedded = function (coap_url, ed) {
         var base = _.d.get(ed, "/_base");
         if (!base) {
             coap_urlp = url.parse(coap_url);
-            coap_urlp.pathname = "/"
+            coap_urlp.pathname = "/";
             base = url.format(coap_urlp);
         }
 
@@ -241,10 +242,10 @@ PlugfestBridge.prototype._fetch = function (start_url) {
             "name": _.d.get(ed, "name", null),
             "purpose": _.d.get(ed, "purpose", null),
             "url": url.format(coap_urlp),
-        }
+        };
     };
 
-    var _handle_json = function(coap_url, string) {
+    var _handle_json = function (coap_url, string) {
         var d = JSON.parse(string);
         var items = _.d.get(d, "_embedded/item", null);
         if (!items) {
@@ -253,7 +254,7 @@ PlugfestBridge.prototype._fetch = function (start_url) {
 
         var ind = null;
         var outd = null;
-        items.map(function(item) {
+        items.map(function (item) {
             if (_.d.get(item, "/_links/about/type") === 'application/lighting+json') {
                 ind = _handle_embedded(coap_url, item);
             }
@@ -277,7 +278,7 @@ PlugfestBridge.prototype._fetch = function (start_url) {
         self.discovered(new PlugfestBridge(initd, {}));
     };
 
-    var _download = function(coap_url) {
+    _download = function (coap_url) {
         if (seend[coap_url]) {
             logger.error({
                 method: "_fetch/_download",
@@ -285,10 +286,10 @@ PlugfestBridge.prototype._fetch = function (start_url) {
                 cause: "may not be a problem, just avoiding loops",
             }, "already downloaded");
             return;
-        } 
+        }
         seend[coap_url] = true;
 
-        self._download(coap_url, function(error, string) {
+        self._download(coap_url, function (error, string) {
             if (error) {
                 logger.error({
                     method: "_fetch/_download",
@@ -302,15 +303,14 @@ PlugfestBridge.prototype._fetch = function (start_url) {
                 _handle_links(coap_url, string);
             } else if (string.match(/^{/)) {
                 _handle_json(coap_url, string);
-            } else {
-            }
+            } else {}
         });
     };
 
     _download(start_url);
-}
+};
 
-PlugfestBridge.prototype._download = function(coap_url, callback) {
+PlugfestBridge.prototype._download = function (coap_url, callback) {
     var req = coap.request(coap_url);
 
     logger.info({
@@ -319,25 +319,25 @@ PlugfestBridge.prototype._download = function(coap_url, callback) {
     }, "download");
 
 
-    req.on('response', function(res) {
+    req.on('response', function (res) {
         var parts = [];
-        res.on('readable',function(){
+        res.on('readable', function () {
             while (true) {
                 var buffer = res.read();
                 if (!buffer) {
-                    return
+                    return;
                 }
 
                 parts.push(buffer.toString('utf-8'));
             }
         });
 
-        res.on('end',function(){
+        res.on('end', function () {
             callback(null, parts.join("\n"));
         });
     });
 
-    req.end()
+    req.end();
 };
 
 /**
@@ -351,7 +351,7 @@ PlugfestBridge.prototype.connect = function (connectd) {
 
     self.connectd = _.defaults(connectd, {}, self.connectd);
 
-    var _process = function(error, result) {
+    var _process = function (error, result) {
         if (error) {
             logger.error({
                 method: "connect/_process",
@@ -438,7 +438,7 @@ PlugfestBridge.prototype.push = function (pushd, done) {
             self._push(pushd);
             self.queue.finished(qitem);
         },
-        coda: function() {
+        coda: function () {
             done();
         },
     };
@@ -532,7 +532,7 @@ PlugfestBridge.prototype.configure = function (app) {};
 var _server = null;
 var _pendings = [];
 
-PlugfestBridge.prototype._server = function(callback) {
+PlugfestBridge.prototype._server = function (callback) {
     var self = this;
 
     if (_server) {
@@ -541,19 +541,19 @@ PlugfestBridge.prototype._server = function(callback) {
 
     _pendings.push(callback);
 
-    var _done = function(error, server) {
+    var _done = function (error, server) {
         if (error) {
             _server = null;
         } else {
             _server = server;
         }
 
-        _pendings.map(function(pending) {
+        _pendings.map(function (pending) {
             pending(error, _server);
         });
     };
 
-    _.net.external.ipv4(function(error, ipv4) {
+    _.net.external.ipv4(function (error, ipv4) {
         if (self.initd.server_host) {
             ipv4 = self.initd.server_host;
         } else if (error) {
@@ -561,7 +561,7 @@ PlugfestBridge.prototype._server = function(callback) {
         }
 
         var server = coap.createServer();
-        server.listen(self.initd.server_port, "0.0.0.0", function(error) {
+        server.listen(self.initd.server_port, "0.0.0.0", function (error) {
             if (server) {
                 server._iotdb_url = "coap://" + ipv4 + ":" + self.initd.server_port;
             }
@@ -571,7 +571,7 @@ PlugfestBridge.prototype._server = function(callback) {
     });
 
 };
- 
+
 /*
  *  API
  */
