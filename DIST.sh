@@ -6,7 +6,6 @@
 #   2016-01-22
 #
 
-exit 0
 PACKAGE=homestar-plugfest
 DIST_ROOT=/var/tmp/.dist.$$
 
