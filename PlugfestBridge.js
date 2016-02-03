@@ -452,7 +452,7 @@ PlugfestBridge.prototype._push = function (pushd) {
     var self = this;
 
     var paramd = {
-        rawd: _.shallowCopy(pushd),
+        rawd: _.d.clone.shallow(pushd),
         cookd: pushd,
     };
 
@@ -476,7 +476,7 @@ PlugfestBridge.prototype._pulled = function () {
 
     var paramd = {
         rawd: self.stated,
-        cookd: _.shallowCopy(self.stated),
+        cookd: _.d.clone.shallow(self.stated),
     };
 
     if (self.connectd.data_in) {
