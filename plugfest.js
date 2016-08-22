@@ -24,7 +24,7 @@
 
 var iotdb = require('iotdb');
 var iotdb_transport = require('iotdb-transport');
-var _ = iotdb.helpers;
+var _ = iotdb._;
 
 var logger = iotdb.logger({
     name: 'homestar-plugfest',
