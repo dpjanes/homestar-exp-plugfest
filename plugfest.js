@@ -26,8 +26,6 @@ var iotdb = require('iotdb');
 var iotdb_transport = require('iotdb-transport');
 var _ = iotdb.helpers;
 
-var url_join = require('url-join');
-
 var logger = iotdb.logger({
     name: 'homestar-plugfest',
     module: 'plugfest',
@@ -49,7 +47,7 @@ var _transport_plugfest = function (iotdb_transporter) {
 
     var owner = iotdb.users.owner();
     var plugfest_transporter = new PlugfestTransport({
-        prefix: url_join("/", "api", "things"),
+        prefix: _.net.url.join("/", "api", "things"),
         key_things: "thing",
         server_host: null, // needs to be made soft
         server_port: 22001, // needs to be made soft
