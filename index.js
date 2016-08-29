@@ -29,3 +29,5 @@ exports.Bridge = require('./PlugfestBridge').Bridge;
 exports.bindings = [
     require('./models/PlugfestLight').binding,
 ];
+
+exports.module_folder = __dirname;
