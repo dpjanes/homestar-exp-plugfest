@@ -163,10 +163,6 @@ var PlugfestBridge = function (initd, native) {
 
 PlugfestBridge.prototype = new iotdb.Bridge();
 
-PlugfestBridge.prototype.name = function () {
-    return "PlugfestBridge";
-};
-
 /* --- lifecycle --- */
 
 /**
